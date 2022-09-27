@@ -5,6 +5,7 @@ import Live from "./classes/live.ts";
 import Socket from "./classes/socket.ts";
 import Pinger from "./classes/pinger.ts";
 import Emitter from "./classes/emitter.ts";
+export { default as Live } from "./classes/live.ts";
 
 let singleton: Surreal;
 
