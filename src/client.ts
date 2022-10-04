@@ -275,6 +275,7 @@ export class Surreal extends Emitter<
 	 * @param token - The JWT authentication token.
 	 */
 	async authenticate(token: string): Promise<void> {
+    this.#token = token;
 		const res = await this.#send("authenticate", [token]);
 
 		this.#outputHandlerError(res, AuthenticationError as typeof Error);
