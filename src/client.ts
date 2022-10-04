@@ -34,10 +34,6 @@ export class Surreal extends Emitter<
 		]: [Result<any>];
 	}
 > {
-	// ------------------------------
-	// Main singleton
-	// ------------------------------
-
 	/**
 	 * The Instance static singleton ensures that a single database instance is available across very large or complicated applications.
 	 * With the singleton, only one connection to the database is instantiated, and the database connection does not have to be shared
@@ -48,20 +44,11 @@ export class Surreal extends Emitter<
 		return singleton ? singleton : singleton = new Surreal();
 	}
 
-	// ------------------------------
-	// Properties
-	// ------------------------------
 	#ws!: Socket;
-
 	#token?: string;
-
 	#pinger!: Pinger;
-
 	#attempted?: Promise<void>;
 
-	// ------------------------------
-	// Accessors
-	// ------------------------------
 	get token(): string | undefined {
 		return this.#token;
 	}
@@ -90,11 +77,11 @@ export class Surreal extends Emitter<
 		return this.#ws.status;
 	}
 
+	/**
+	 * Set this to `true` to get logs.
+	 */
 	debug = false;
 
-	// ------------------------------
-	// Methods
-	// ------------------------------
 	/**
 	 * Initializee a SurrealDb.
 	 * @param url - The url of the database endpoint to connect to.
@@ -116,8 +103,7 @@ export class Surreal extends Emitter<
 	 */
 	connect(url: string): Promise<void> {
 		// Next we setup the websocket connection
-		// and listen for events on the socket,
-		// specifying whether logging is enabled.
+		// and listen for events on the socket.
 		this.#ws = new Socket(url);
 
 		// Setup the interval pinger so that the
@@ -125,19 +111,19 @@ export class Surreal extends Emitter<
 		// loadbalancers and proxies.
 		this.#pinger = new Pinger(30000);
 
-		// When the connection is opened we
-		// need to attempt authentication if
-		// a token has already been applied.
 		this.#ws.on("open", () => {
+			// When the connection is opened we
+			// need to attempt authentication if
+			// a token has already been applied.
 			this.#init();
 
 			// When the connection is opened we
 			// change the relevant properties
 			// open live queries, and trigger.
-
 			this.emit("open");
 			this.emit("opened");
 
+			// Ensure connection stays alive.
 			this.#pinger.start(() => {
 				this.ping();
 			});
@@ -147,10 +133,10 @@ export class Surreal extends Emitter<
 			}
 		});
 
-		// When the connection is closed we
-		// change the relevant properties
-		// stop live queries, and trigger.
 		this.#ws.on("close", () => {
+			// When the connection is closed we
+			// change the relevant properties
+			// stop live queries, and trigger.
 			this.emit("close");
 			this.emit("closed");
 
@@ -188,15 +174,13 @@ export class Surreal extends Emitter<
 		// attempt to reconnect on failure.
 		this.#ws.open();
 
-		//
-		//
-		//
 		return this.wait();
 	}
 
-	// --------------------------------------------------
-	// Public methods
-	// --------------------------------------------------
+	/**
+	 * Live querys are currently not supported
+	 * @deprecated
+	 */
 	sync(query: string, vars?: Record<string, unknown>): Live {
 		return new Live(this, query, vars);
 	}
@@ -265,6 +249,7 @@ export class Surreal extends Emitter<
 		this.#outputHandlerError(res, AuthenticationError as typeof Error);
 
 		this.#token = res.result;
+
 		return res.result;
 	}
 
@@ -275,7 +260,6 @@ export class Surreal extends Emitter<
 	 */
 	async signin(vars: Auth): Promise<string> {
 		const res = await this.#send("signin", [vars], false);
-		console.log(res);
 
 		this.#outputHandlerError(res, AuthenticationError as typeof Error);
 
@@ -290,6 +274,7 @@ export class Surreal extends Emitter<
 		const res = await this.#send("invalidate");
 
 		this.#outputHandlerError(res, AuthenticationError as typeof Error);
+		this.#token = undefined;
 
 		return res.result;
 	}
@@ -299,15 +284,18 @@ export class Surreal extends Emitter<
 	 * @param token - The JWT authentication token.
 	 */
 	async authenticate(token: string): Promise<void> {
-		this.#token = token;
 		const res = await this.#send("authenticate", [token], false);
 
 		this.#outputHandlerError(res, AuthenticationError as typeof Error);
+		this.#token = token;
 
 		return res.result;
 	}
 
-	// --------------------------------------------------
+	/**
+	 * Live queries are currently not supported
+	 * @deprecated
+	 */
 	async live(table: string): Promise<string> {
 		const res = await this.#send("live", [table]);
 
@@ -466,9 +454,10 @@ export class Surreal extends Emitter<
 		return;
 	}
 
-	// --------------------------------------------------
-	// Private methods
-	// --------------------------------------------------
+	/**
+	 * Tries to authenticate.
+	 * this.#attempted will resolve when finished
+	 */
 	#init(): void {
 		this.#attempted = Promise.resolve().then(async () => {
 			if (!this.#token) {
@@ -482,6 +471,12 @@ export class Surreal extends Emitter<
 		});
 	}
 
+	/**
+	 * Send message to server and waits for response.
+	 *
+	 * @param wait Set to false if we don't want to wait on re-authentication
+	 * @returns Result
+	 */
 	async #send(method: string, params: unknown[] = [], wait = true) {
 		const id = guid();
 		if (wait) {
