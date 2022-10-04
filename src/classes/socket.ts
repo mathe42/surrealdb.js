@@ -1,5 +1,5 @@
 import WebSocket from "../ws/deno.ts";
-import Emitter from "./emitter.ts";
+import { Emitter } from "./emitter.ts";
 
 export interface EventLike {
 	type: string;
@@ -36,7 +36,7 @@ export enum ConnectionState {
 	OPEN,
 }
 
-export default class Socket extends Emitter<{
+export class Socket extends Emitter<{
 	"message": [MessageEventLike<string>];
 	"error": [EventLike];
 	"close": [CloseEventLike];
