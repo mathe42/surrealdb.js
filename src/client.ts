@@ -68,6 +68,9 @@ export class Surreal extends Emitter<
 
 	set token(token) {
 		this.#token = token;
+    if(this.status !== ConnectionState.NOT_CONNECTED) {
+      this.#init();
+    }
 	}
 
 	get status(): ConnectionState {
