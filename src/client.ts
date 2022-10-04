@@ -68,19 +68,19 @@ export class Surreal extends Emitter<
 
 	set token(token) {
 		this.#token = token;
-    if(this.status !== ConnectionState.NOT_CONNECTED) {
-      this.#init();
-    }
+		if (this.status !== ConnectionState.NOT_CONNECTED) {
+			this.#init();
+		}
 	}
 
-  /**
-   * Time in seconds until token expires. 
-   */
-  get expiresIn() {
-    if(!this.#token) return -1;
+	/**
+	 * Time in seconds until token expires.
+	 */
+	get expiresIn() {
+		if (!this.#token) return -1;
 
-    return this.#parseToken()['exp'] - (new Date().getTime() / 1000)
-  }
+		return this.#parseToken()["exp"] - (new Date().getTime() / 1000);
+	}
 
 	get status(): ConnectionState {
 		if (!this.#ws) {
@@ -89,6 +89,8 @@ export class Surreal extends Emitter<
 
 		return this.#ws.status;
 	}
+
+	debug = false;
 
 	// ------------------------------
 	// Methods
@@ -128,18 +130,21 @@ export class Surreal extends Emitter<
 		// a token has already been applied.
 		this.#ws.on("open", () => {
 			this.#init();
-		});
 
-		// When the connection is opened we
-		// change the relevant properties
-		// open live queries, and trigger.
-		this.#ws.on("open", () => {
+			// When the connection is opened we
+			// change the relevant properties
+			// open live queries, and trigger.
+
 			this.emit("open");
 			this.emit("opened");
 
 			this.#pinger.start(() => {
 				this.ping();
 			});
+
+			if (this.debug) {
+				console.log("[Surrealdb.js]", "Websocket open");
+			}
 		});
 
 		// When the connection is closed we
@@ -150,6 +155,10 @@ export class Surreal extends Emitter<
 			this.emit("closed");
 
 			this.#pinger.stop();
+
+			if (this.debug) {
+				console.log("[Surrealdb.js]", "Websocket closed");
+			}
 		});
 
 		// When we receive a socket message
@@ -157,6 +166,11 @@ export class Surreal extends Emitter<
 		// then it is a query response.
 		this.#ws.on("message", (e) => {
 			const d = JSON.parse(e.data);
+
+			if (this.debug) {
+				console.log("[Surrealdb.js]", "got message");
+				console.table(d);
+			}
 
 			if (d.method !== "notify") {
 				return this.emit(d.id, d);
@@ -261,7 +275,7 @@ export class Surreal extends Emitter<
 	 */
 	async signin(vars: Auth): Promise<string> {
 		const res = await this.#send("signin", [vars], false);
-    console.log(res)
+		console.log(res);
 
 		this.#outputHandlerError(res, AuthenticationError as typeof Error);
 
@@ -285,7 +299,7 @@ export class Surreal extends Emitter<
 	 * @param token - The JWT authentication token.
 	 */
 	async authenticate(token: string): Promise<void> {
-    this.#token = token;
+		this.#token = token;
 		const res = await this.#send("authenticate", [token], false);
 
 		this.#outputHandlerError(res, AuthenticationError as typeof Error);
@@ -457,29 +471,37 @@ export class Surreal extends Emitter<
 	// --------------------------------------------------
 	#init(): void {
 		this.#attempted = Promise.resolve().then(async () => {
-			if(!this.#token) {
-				return
+			if (!this.#token) {
+				return;
 			}
 			try {
-				await this.authenticate(this.#token)
+				await this.authenticate(this.#token);
 			} catch (_) {
 				// ignore Errors
 			}
-		})
+		});
 	}
 
 	async #send(method: string, params: unknown[] = [], wait = true) {
 		const id = guid();
-		if(wait) {
+		if (wait) {
 			await this.wait();
 		} else {
 			await this.#ws.ready;
 		}
-		this.#ws.send(JSON.stringify({
+
+		const d = {
 			id: id,
 			method: method,
 			params: params,
-		}));
+		};
+		this.#ws.send(JSON.stringify(d));
+
+		if (this.debug) {
+			console.log("[Surrealdb.js]", "message send");
+			console.table(d);
+		}
+
 		const [res] = await this.nextEvent(id);
 		return res;
 	}
@@ -514,8 +536,8 @@ export class Surreal extends Emitter<
 			throw new Err(res.error.message);
 		}
 	}
-  
-  #parseToken() {
-    return JSON.parse(atob(this.#token!.split('.')[1]))
-  }
+
+	#parseToken() {
+		return JSON.parse(atob(this.#token!.split(".")[1]));
+	}
 }
