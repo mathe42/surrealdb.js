@@ -73,6 +73,15 @@ export class Surreal extends Emitter<
     }
 	}
 
+  /**
+   * Time in seconds until token expires. 
+   */
+  get expiresIn() {
+    if(!this.#token) return -1;
+
+    return this.#parseToken()['exp'] - (new Date().getTime() / 1000)
+  }
+
 	get status(): ConnectionState {
 		if (!this.#ws) {
 			return ConnectionState.NOT_CONNECTED;
@@ -251,7 +260,8 @@ export class Surreal extends Emitter<
 	 * @return The authenication token.
 	 */
 	async signin(vars: Auth): Promise<string> {
-		const res = await this.#send("signin", [vars]);
+		const res = await this.#send("signin", [vars], false);
+    console.log(res)
 
 		this.#outputHandlerError(res, AuthenticationError as typeof Error);
 
@@ -504,4 +514,8 @@ export class Surreal extends Emitter<
 			throw new Err(res.error.message);
 		}
 	}
+  
+  #parseToken() {
+    return JSON.parse(atob(this.#token!.split('.')[1]))
+  }
 }
